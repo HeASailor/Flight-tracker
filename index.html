@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0a0d12">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="Flight Tracker">
+<title>DME — Distance Tracker</title>
+<style>
+  :root{
+    --bg:#0a0d12;
+    --panel:#11161d;
+    --panel-line:#232b35;
+    --amber:#ffb000;
+    --cyan:#3fd0c9;
+    --red:#e85c4a;
+    --text:#d8dee4;
+    --dim:#6b7684;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{
+    margin:0; padding:0;
+    background:var(--bg);
+    color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    min-height:100vh;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{
+    max-width:480px;
+    margin:0 auto;
+    padding:20px 18px 40px;
+    min-height:100vh;
+  }
+  .tag{
+    display:flex;
+    justify-content:space-between;
+    align-items:baseline;
+    padding-bottom:14px;
+    border-bottom:1px solid var(--panel-line);
+    margin-bottom:22px;
+  }
+  .tag .from{
+    font-size:13px;
+    color:var(--dim);
+    letter-spacing:0.02em;
+  }
+  .tag .to{
+    font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+    font-size:15px;
+    color:var(--cyan);
+  }
+
+  .dest-picker{
+    margin-bottom:16px;
+  }
+  .dest-picker .label{
+    font-size:11px;
+    color:var(--dim);
+    margin-bottom:6px;
+  }
+  select{
+    font:inherit;
+    width:100%;
+    background:var(--panel);
+    color:var(--text);
+    border:1px solid var(--panel-line);
+    border-radius:6px;
+    padding:12px 14px;
+    font-size:15px;
+    -webkit-appearance:none;
+    appearance:none;
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='9' viewBox='0 0 14 9'><path d='M1 1L7 7L13 1' stroke='%236b7684' stroke-width='1.6' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+    background-repeat:no-repeat;
+    background-position:right 14px center;
+  }
+
+  /* Hero distance readout */
+  .hero{
+    background:var(--panel);
+    border:1px solid var(--panel-line);
+    border-radius:6px;
+    padding:26px 20px 22px;
+    text-align:center;
+    position:relative;
+  }
+  .hero .label{
+    font-size:13px;
+    color:var(--dim);
+    margin-bottom:6px;
+  }
+  .hero .miles{
+    font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+    font-size:64px;
+    font-weight:600;
+    color:var(--amber);
+    line-height:1;
+    letter-spacing:-0.01em;
+    font-variant-numeric:tabular-nums;
+  }
+  .hero .unit{
+    font-size:18px;
+    color:var(--dim);
+    margin-left:6px;
+  }
+  .hero .km{
+    margin-top:8px;
+    font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+    font-size:16px;
+    color:var(--dim);
+  }
+  .hero.stale .miles{ color:var(--dim); }
+  .hero .updated{
+    margin-top:14px;
+    font-size:11px;
+    color:var(--dim);
+  }
+
+  /* Compass + bearing */
+  .instrument-row{
+    display:flex;
+    gap:12px;
+    margin-top:14px;
+  }
+  .card{
+    flex:1;
+    background:var(--panel);
+    border:1px solid var(--panel-line);
+    border-radius:6px;
+    padding:16px 14px;
+  }
+  .card .label{
+    font-size:11px;
+    color:var(--dim);
+    margin-bottom:10px;
+  }
+  .rose-wrap{
+    display:flex;
+    justify-content:center;
+  }
+  .card .bignum{
+    font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+    font-size:22px;
+    color:var(--text);
+    font-variant-numeric:tabular-nums;
+  }
+  .card .subnote{
+    font-size:11px;
+    color:var(--dim);
+    margin-top:4px;
+  }
+
+  /* raw coords */
+  .coords{
+    margin-top:12px;
+    background:var(--panel);
+    border:1px solid var(--panel-line);
+    border-radius:6px;
+    padding:14px 16px;
+    font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+    font-size:13px;
+    color:var(--dim);
+    display:flex;
+    justify-content:space-between;
+  }
+  .coords span.v{ color:var(--text); }
+
+  /* status / permission */
+  .status{
+    margin-top:14px;
+    font-size:13px;
+    color:var(--dim);
+    line-height:1.5;
+    padding:14px 16px;
+    border:1px solid var(--panel-line);
+    border-radius:6px;
+    background:var(--panel);
+  }
+  .status.warn{ border-color:#5a3a1e; color:#e0b673; }
+  .status.error{ border-color:#5a2a24; color:#f0a698; }
+
+  button{
+    font:inherit;
+    background:var(--amber);
+    color:#1a1208;
+    border:none;
+    border-radius:5px;
+    padding:11px 18px;
+    font-size:14px;
+    font-weight:600;
+    margin-top:10px;
+    cursor:pointer;
+    width:100%;
+  }
+  button:active{ opacity:0.85; }
+  button.secondary{
+    background:transparent;
+    color:var(--cyan);
+    border:1px solid var(--panel-line);
+  }
+
+  .footer-note{
+    margin-top:18px;
+    font-size:11px;
+    color:var(--dim);
+    line-height:1.6;
+    text-align:center;
+  }
+
+  @media (max-width:360px){
+    .hero .miles{ font-size:52px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="tag">
+    <div class="from">YOUR POSITION</div>
+    <div class="to" id="destTag">→ VOBL / BLR</div>
+  </div>
+
+  <div class="dest-picker">
+    <div class="label">DESTINATION</div>
+    <select id="destSelect">
+      <optgroup label="India">
+        <option value="blr" selected>Bengaluru — Kempegowda Intl (BLR)</option>
+        <option value="del">Delhi — Indira Gandhi Intl (DEL)</option>
+        <option value="bom">Mumbai — Chhatrapati Shivaji (BOM)</option>
+        <option value="maa">Chennai Intl (MAA)</option>
+      </optgroup>
+      <optgroup label="Middle East">
+        <option value="dxb">Dubai Intl (DXB)</option>
+        <option value="doh">Doha — Hamad Intl (DOH)</option>
+      </optgroup>
+      <optgroup label="Asia-Pacific">
+        <option value="sin">Singapore — Changi (SIN)</option>
+        <option value="hkg">Hong Kong Intl (HKG)</option>
+        <option value="hnd">Tokyo — Haneda (HND)</option>
+        <option value="syd">Sydney (SYD)</option>
+        <option value="jkt">Jakarta, Indonesia (JKT)</option>
+        <option value="lka">Sri Lanka (center point)</option>
+      </optgroup>
+      <optgroup label="Europe">
+        <option value="lhr">London — Heathrow (LHR)</option>
+        <option value="cdg">Paris — Charles de Gaulle (CDG)</option>
+        <option value="fra">Frankfurt (FRA)</option>
+      </optgroup>
+      <optgroup label="North America">
+        <option value="jfk">New York — JFK (JFK)</option>
+        <option value="sfo">San Francisco Intl (SFO)</option>
+      </optgroup>
+    </select>
+  </div>
+
+  <div class="hero" id="hero">
+    <div class="label">DISTANCE REMAINING</div>
+    <div><span class="miles" id="miles">—</span><span class="unit">mi</span></div>
+    <div class="km" id="km">— km</div>
+    <div class="updated" id="updated">waiting for GPS fix…</div>
+  </div>
+
+  <div class="instrument-row">
+    <div class="card">
+      <div class="label" id="bearingLabel">BEARING TO BLR</div>
+      <div class="rose-wrap" id="roseWrap"></div>
+      <div class="subnote" id="bearingText">—</div>
+    </div>
+    <div class="card">
+      <div class="label">GROUND SPEED</div>
+      <div class="bignum" id="speed">—</div>
+      <div class="subnote">mph, from GPS</div>
+      <div class="label" style="margin-top:14px;">ETA</div>
+      <div class="bignum" id="eta" style="font-size:17px;">—</div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:12px;">
+    <div class="label">LOCAL TIME AT DESTINATION</div>
+    <div class="bignum" id="localTime" style="font-size:26px;">—</div>
+    <div class="subnote" id="localDate">—</div>
+  </div>
+
+  <div class="coords">
+    <span>LAT <span class="v" id="lat">—</span></span>
+    <span>LON <span class="v" id="lon">—</span></span>
+    <span>±<span class="v" id="acc">—</span>m</span>
+  </div>
+
+  <div class="status" id="status">
+    Tap below to start. GPS works without a data or wifi connection — it reads your device's satellite receiver directly, so this keeps working in airplane mode as long as location access is on.
+  </div>
+
+  <button id="startBtn">Start tracking</button>
+  <button class="secondary" id="compassBtn" style="display:none;">Enable compass</button>
+
+  <div class="footer-note" id="footerNote">
+    Great-circle distance to Kempegowda International Airport (VOBL), 13.1986°N 77.7066°E. Straight-line distance — not a flight path.
+  </div>
+
+</div>
+
+<script>
+(function(){
+  var DESTINATIONS = {
+    blr: { name: 'Kempegowda Intl Airport', short: 'BLR', lat: 13.1986,  lon: 77.7066,  tz: 'Asia/Kolkata' },
+    del: { name: 'Indira Gandhi Intl Airport', short: 'DEL', lat: 28.5562,  lon: 77.1000,  tz: 'Asia/Kolkata' },
+    bom: { name: 'Chhatrapati Shivaji Intl Airport', short: 'BOM', lat: 19.0887,  lon: 72.8679,  tz: 'Asia/Kolkata' },
+    maa: { name: 'Chennai International Airport', short: 'MAA', lat: 12.9941,  lon: 80.1709,  tz: 'Asia/Kolkata' },
+    dxb: { name: 'Dubai International Airport', short: 'DXB', lat: 25.2532,  lon: 55.3657,  tz: 'Asia/Dubai' },
+    doh: { name: 'Hamad International Airport', short: 'DOH', lat: 25.2731,  lon: 51.6081,  tz: 'Asia/Qatar' },
+    sin: { name: 'Singapore Changi Airport', short: 'SIN', lat: 1.3644,   lon: 103.9915, tz: 'Asia/Singapore' },
+    hkg: { name: 'Hong Kong International Airport', short: 'HKG', lat: 22.3080,  lon: 113.9185, tz: 'Asia/Hong_Kong' },
+    hnd: { name: 'Tokyo Haneda Airport', short: 'HND', lat: 35.5494,  lon: 139.7798, tz: 'Asia/Tokyo' },
+    lhr: { name: 'London Heathrow Airport', short: 'LHR', lat: 51.4700,  lon: -0.4543,  tz: 'Europe/London' },
+    cdg: { name: 'Paris Charles de Gaulle Airport', short: 'CDG', lat: 49.0097,  lon: 2.5479,   tz: 'Europe/Paris' },
+    fra: { name: 'Frankfurt Airport', short: 'FRA', lat: 50.0379,  lon: 8.5622,   tz: 'Europe/Berlin' },
+    jfk: { name: 'John F. Kennedy Intl Airport', short: 'JFK', lat: 40.6413,  lon: -73.7781, tz: 'America/New_York' },
+    sfo: { name: 'San Francisco International Airport', short: 'SFO', lat: 37.6213,  lon: -122.3790,tz: 'America/Los_Angeles' },
+    syd: { name: 'Sydney Airport', short: 'SYD', lat: -33.9399, lon: 151.1753, tz: 'Australia/Sydney' },
+    lka: { name: 'Sri Lanka (center point)', short: 'LKA', lat: 7.8731,   lon: 80.7718,  tz: 'Asia/Colombo' },
+    jkt: { name: 'Jakarta, Indonesia', short: 'JKT', lat: -6.2088,  lon: 106.8456, tz: 'Asia/Jakarta' }
+  };
+  var currentDest = DESTINATIONS.blr;
+  var R_KM = 6371.0088;
+
+  var destSelect = document.getElementById('destSelect');
+  var destTag = document.getElementById('destTag');
+  var bearingLabel = document.getElementById('bearingLabel');
+  var footerNote = document.getElementById('footerNote');
+
+  function formatCoord(deg, isLat){
+    var hemi = isLat ? (deg >= 0 ? 'N' : 'S') : (deg >= 0 ? 'E' : 'W');
+    return Math.abs(deg).toFixed(4) + '°' + hemi;
+  }
+
+  var localTimeEl = document.getElementById('localTime');
+  var localDateEl = document.getElementById('localDate');
+
+  function applyDestToUI(dest){
+    destTag.textContent = '→ ' + dest.short + ' / ' + dest.name;
+    bearingLabel.textContent = 'BEARING TO ' + dest.short;
+    footerNote.textContent = 'Great-circle distance to ' + dest.name + ' (' + dest.short + '), ' +
+      formatCoord(dest.lat, true) + ' ' + formatCoord(dest.lon, false) + '. Straight-line distance — not a flight path.';
+    updateLocalTime();
+  }
+  applyDestToUI(currentDest);
+
+  function updateLocalTime(){
+    try{
+      var now = new Date();
+      var timeFmt = new Intl.DateTimeFormat('en-US', {
+        timeZone: currentDest.tz, hour: 'numeric', minute: '2-digit', hour12: true
+      });
+      var dateFmt = new Intl.DateTimeFormat('en-US', {
+        timeZone: currentDest.tz, weekday: 'short', day: 'numeric', month: 'short'
+      });
+      localTimeEl.textContent = timeFmt.format(now);
+      localDateEl.textContent = dateFmt.format(now) + ' · ' + currentDest.short + ' local';
+    } catch(e){
+      localTimeEl.textContent = '—';
+      localDateEl.textContent = 'timezone data unavailable on this device';
+    }
+  }
+  setInterval(updateLocalTime, 1000);
+
+  destSelect.addEventListener('change', function(){
+    currentDest = DESTINATIONS[destSelect.value];
+    applyDestToUI(currentDest);
+    if(lastFixCoords){
+      recompute(lastFixCoords.lat, lastFixCoords.lon, lastFixCoords.acc, lastFixCoords.speed);
+    }
+  });
+
+  var milesEl = document.getElementById('miles');
+  var kmEl = document.getElementById('km');
+  var updatedEl = document.getElementById('updated');
+  var heroEl = document.getElementById('hero');
+  var latEl = document.getElementById('lat');
+  var lonEl = document.getElementById('lon');
+  var accEl = document.getElementById('acc');
+  var speedEl = document.getElementById('speed');
+  var etaEl = document.getElementById('eta');
+  var bearingText = document.getElementById('bearingText');
+  var statusEl = document.getElementById('status');
+  var startBtn = document.getElementById('startBtn');
+  var compassBtn = document.getElementById('compassBtn');
+  var roseWrap = document.getElementById('roseWrap');
+
+  var watchId = null;
+  var lastFixTime = null;
+  var currentBearingToBLR = null;
+  var deviceHeading = null;
+  var staleTimer = null;
+
+  function toRad(d){ return d * Math.PI / 180; }
+  function toDeg(r){ return r * 180 / Math.PI; }
+
+  function haversineKm(lat1, lon1, lat2, lon2){
+    var dLat = toRad(lat2 - lat1);
+    var dLon = toRad(lon2 - lon1);
+    var a = Math.sin(dLat/2)*Math.sin(dLat/2) +
+            Math.cos(toRad(lat1))*Math.cos(toRad(lat2)) *
+            Math.sin(dLon/2)*Math.sin(dLon/2);
+    var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    return R_KM * c;
+  }
+
+  function bearingDeg(lat1, lon1, lat2, lon2){
+    var y = Math.sin(toRad(lon2-lon1)) * Math.cos(toRad(lat2));
+    var x = Math.cos(toRad(lat1))*Math.sin(toRad(lat2)) -
+            Math.sin(toRad(lat1))*Math.cos(toRad(lat2))*Math.cos(toRad(lon2-lon1));
+    var brng = toDeg(Math.atan2(y, x));
+    return (brng + 360) % 360;
+  }
+
+  function compassLabel(deg){
+    var dirs = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];
+    return dirs[Math.round(deg/22.5) % 16];
+  }
+
+  // --- SVG rose ---
+  var svgNS = "http://www.w3.org/2000/svg";
+  var svg = document.createElementNS(svgNS, "svg");
+  svg.setAttribute("width", "100");
+  svg.setAttribute("height", "100");
+  svg.setAttribute("viewBox", "0 0 100 100");
+  var circle = document.createElementNS(svgNS, "circle");
+  circle.setAttribute("cx","50"); circle.setAttribute("cy","50"); circle.setAttribute("r","44");
+  circle.setAttribute("fill","none");
+  circle.setAttribute("stroke","#232b35");
+  circle.setAttribute("stroke-width","1.5");
+  svg.appendChild(circle);
+  ["N","E","S","W"].forEach(function(dir, i){
+    var ang = i * 90;
+    var rad = toRad(ang - 90);
+    var x = 50 + 36 * Math.cos(rad);
+    var y = 50 + 36 * Math.sin(rad);
+    var t = document.createElementNS(svgNS, "text");
+    t.setAttribute("x", x); t.setAttribute("y", y + 3);
+    t.setAttribute("text-anchor","middle");
+    t.setAttribute("font-size","9");
+    t.setAttribute("fill","#6b7684");
+    t.setAttribute("font-family","ui-monospace,monospace");
+    t.textContent = dir;
+    svg.appendChild(t);
+  });
+  var needle = document.createElementNS(svgNS, "line");
+  needle.setAttribute("x1","50"); needle.setAttribute("y1","50");
+  needle.setAttribute("x2","50"); needle.setAttribute("y2","14");
+  needle.setAttribute("stroke","#ffb000");
+  needle.setAttribute("stroke-width","3");
+  needle.setAttribute("stroke-linecap","round");
+  needle.setAttribute("id","needle");
+  svg.appendChild(needle);
+  var hub = document.createElementNS(svgNS, "circle");
+  hub.setAttribute("cx","50"); hub.setAttribute("cy","50"); hub.setAttribute("r","3.5");
+  hub.setAttribute("fill","#ffb000");
+  svg.appendChild(hub);
+  roseWrap.appendChild(svg);
+
+  function updateNeedle(){
+    if(currentBearingToBLR === null) return;
+    var displayAngle = currentBearingToBLR;
+    // If we have a device compass heading, show bearing relative to where the device is pointing
+    if(deviceHeading !== null){
+      displayAngle = (currentBearingToBLR - deviceHeading + 360) % 360;
+    }
+    needle.setAttribute("transform", "rotate(" + displayAngle + " 50 50)");
+  }
+
+  var prevFix = null;
+  var lastFixCoords = null;
+
+  function recompute(lat, lon, acc, gpsSpeed){
+    var now = Date.now();
+
+    var distKm = haversineKm(lat, lon, currentDest.lat, currentDest.lon);
+    var distMi = distKm * 0.621371;
+    currentBearingToBLR = bearingDeg(lat, lon, currentDest.lat, currentDest.lon);
+
+    milesEl.textContent = distMi.toFixed(1);
+    kmEl.textContent = distKm.toFixed(1) + ' km';
+    heroEl.classList.remove('stale');
+    latEl.textContent = lat.toFixed(4) + '°';
+    lonEl.textContent = lon.toFixed(4) + '°';
+    accEl.textContent = Math.round(acc);
+    bearingText.textContent = Math.round(currentBearingToBLR) + '° ' + compassLabel(currentBearingToBLR);
+
+    // ground speed: prefer GPS-reported speed, else derive from last fix
+    var speedMph = null;
+    if(gpsSpeed !== null && gpsSpeed !== undefined && gpsSpeed >= 0){
+      speedMph = gpsSpeed * 2.23694; // m/s to mph
+    } else if(prevFix){
+      var dtSec = (now - prevFix.t) / 1000;
+      if(dtSec > 2){
+        var dKm = haversineKm(prevFix.lat, prevFix.lon, lat, lon);
+        speedMph = (dKm * 0.621371) / (dtSec / 3600);
+      }
+    }
+    if(speedMph !== null && !isNaN(speedMph)){
+      speedEl.textContent = Math.round(speedMph);
+      if(speedMph > 20){
+        var etaHrs = distMi / speedMph;
+        var mins = Math.round(etaHrs * 60);
+        if(mins < 60){
+          etaEl.textContent = mins + ' min';
+        } else {
+          etaEl.textContent = Math.floor(mins/60) + 'h ' + (mins%60) + 'm';
+        }
+      } else {
+        etaEl.textContent = '—';
+      }
+    }
+
+    prevFix = { lat: lat, lon: lon, t: now };
+    lastFixCoords = { lat: lat, lon: lon, acc: acc, speed: gpsSpeed };
+    lastFixTime = now;
+    updatedEl.textContent = 'updated ' + new Date(now).toLocaleTimeString();
+    statusEl.style.display = 'none';
+    updateNeedle();
+    armStaleCheck();
+  }
+
+  function onPosition(pos){
+    recompute(pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy, pos.coords.speed);
+  }
+
+  function armStaleCheck(){
+    if(staleTimer) clearTimeout(staleTimer);
+    staleTimer = setTimeout(function(){
+      heroEl.classList.add('stale');
+      updatedEl.textContent = 'no fix for a while — last: ' + new Date(lastFixTime).toLocaleTimeString();
+    }, 20000);
+  }
+
+  function onError(err){
+    statusEl.style.display = 'block';
+    statusEl.className = 'status error';
+    var msg = 'Location error: ' + err.message + '.';
+    if(err.code === 1){
+      msg = 'Location permission denied. Enable location access for this page/browser in your device settings, then tap Start tracking again.';
+    } else if(err.code === 2){
+      msg = 'Position unavailable right now. If you\'re in airplane mode, make sure location services are still allowed — GPS itself doesn\'t need signal or data.';
+    } else if(err.code === 3){
+      msg = 'Timed out waiting for a GPS fix. Keep this open near a window if possible — it will keep retrying.';
+    }
+    statusEl.textContent = msg;
+  }
+
+  startBtn.addEventListener('click', function(){
+    if(!navigator.geolocation){
+      statusEl.className = 'status error';
+      statusEl.textContent = 'This browser does not expose a Geolocation API.';
+      statusEl.style.display = 'block';
+      return;
+    }
+    startBtn.textContent = 'Tracking…';
+    startBtn.disabled = true;
+    statusEl.className = 'status';
+    statusEl.textContent = 'Requesting GPS fix…';
+    statusEl.style.display = 'block';
+
+    watchId = navigator.geolocation.watchPosition(onPosition, onError, {
+      enableHighAccuracy: true,
+      maximumAge: 5000,
+      timeout: 15000
+    });
+
+    // Show compass enable button if device orientation is supported
+    if(typeof DeviceOrientationEvent !== 'undefined'){
+      compassBtn.style.display = 'block';
+    }
+  });
+
+  compassBtn.addEventListener('click', function(){
+    function attach(){
+      window.addEventListener('deviceorientation', function(e){
+        var heading = null;
+        if(e.webkitCompassHeading !== undefined && e.webkitCompassHeading !== null){
+          heading = e.webkitCompassHeading; // iOS, already true/magnetic north relative
+        } else if(e.alpha !== null){
+          heading = 360 - e.alpha; // rough approximation on Android
+        }
+        if(heading !== null){
+          deviceHeading = heading;
+          updateNeedle();
+        }
+      }, true);
+      compassBtn.textContent = 'Compass enabled';
+      compassBtn.disabled = true;
+    }
+    if(typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function'){
+      DeviceOrientationEvent.requestPermission().then(function(state){
+        if(state === 'granted'){ attach(); }
+        else {
+          compassBtn.textContent = 'Compass permission denied';
+        }
+      }).catch(function(){
+        compassBtn.textContent = 'Compass unavailable';
+      });
+    } else {
+      attach();
+    }
+  });
+
+})();
+</script>
+
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function () {
+    navigator.serviceWorker.register('./sw.js').catch(function () {});
+  });
+}
+</script>
+
+</body>
+</html>
