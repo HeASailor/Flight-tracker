@@ -1,10 +1,21 @@
-# Offline Flight Tracker
+JK Flight Tracker — Trendy Offline Edition
 
-This is a self-contained offline version of the Flight Tracker.
+Upload index.html and sw.js to the root of your GitHub Pages repository.
+
+Features:
+- Offline/Airplane Mode friendly
+- GPS lock/accuracy/fix age
+- Smoothed ground speed
+- Smart ETA
+- Distance remaining + progress
+- Distance trend chart
+- Bearing and compass heading
+- GPS altitude when supplied by the device
+- Local destination time
+- Battery status when supported
+- Searchable destinations
+- Screen wake lock when supported
+- No external libraries, maps, APIs, fonts, images or network calls required by the app
 
 Important:
-- The tracker calculates distance/bearing locally.
-- GPS location comes from the phone's location hardware.
-- After the page has been installed/cached once, the app assets do not require internet.
-- Airplane Mode can be used for GPS tracking if Location Services remain enabled on the phone.
-- iPhone Safari generally requires a secure web context for Service Workers and reliable browser geolocation, so the recommended installation method is to serve this folder once over HTTPS and add it to the Home Screen.
+Install/open once from HTTPS while online so the service worker can cache the app. During the flight, keep Location Services enabled. GPS availability inside an aircraft can vary by device and aircraft environment.
